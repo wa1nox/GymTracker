@@ -70,7 +70,7 @@ export function App() {
       setGoals(data.goals);
       setRecentSets(data.recent_sets);
       if (data.exercises.length > 0 && !selectedEx) {
-        setSelectedEx(data.exercises.id);
+        setSelectedEx(data.exercises[0].id);
       }
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Ошибка загрузки данных');

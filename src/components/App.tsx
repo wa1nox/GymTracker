@@ -28,17 +28,14 @@ export function App() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  // Форма подхода
   const [selectedEx, setSelectedEx] = useState<number>(1);
   const [weight, setWeight] = useState<number>(50);
   const [reps, setReps] = useState<number>(10);
   const [timer, setTimer] = useState<number>(0);
 
-  // Форма цели
   const [goalWeight, setGoalWeight] = useState<number>(100);
   const [goalReps, setGoalReps] = useState<number>(8);
 
-  // Форма нового упражнения
   const [newExName, setNewExName] = useState('');
   const [newExGroup, setNewExGroup] = useState('Грудь');
 
@@ -69,9 +66,10 @@ export function App() {
       setExercises(data.exercises);
       setGoals(data.goals);
       setRecentSets(data.recent_sets);
-      if (data.exercises.length > 0 && !selectedEx) {
-  setSelectedEx(data.exercises.at(0).id);
-}
+      const firstEx = data.exercises.at(0);
+      if (firstEx && !selectedEx) {
+        setSelectedEx(firstEx.id);
+      }
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Ошибка загрузки данных');
     } finally {
@@ -81,7 +79,6 @@ export function App() {
 
   useEffect(() => { loadData(); }, []);
 
-  // Таймер отдыха
   useEffect(() => {
     if (timer <= 0) return;
     const interval = setInterval(() => setTimer((t) => t - 1), 1000);
@@ -250,4 +247,14 @@ export function App() {
 
       <div style={{
         position: 'fixed', bottom: 0, left: 0, right: 0, display: 'flex',
+        background: '#1c1c1e', borderTop: '1px solid #333', padding: '10px 0'
+      }}>
+        <button onClick={() => setTab('workout')} style={{ flex: 1, background: 'none', border: 'none', color: tab === 'workout' ? '#2481cc' : '#888', fontWeight: 600 }}>🏋️ Зал</button>
+        <button onClick={() => setTab('goals')} style={{ flex: 1, background: 'none', border: 'none', color: tab === 'goals' ? '#2481cc' : '#888', fontWeight: 600 }}>🎯 Цели</button>
+        <button onClick={() => setTab('history')} style={{ flex: 1, background: 'none', border: 'none', color: tab === 'history' ? '#2481cc' : '#888', fontWeight: 600 }}>📊 История</button>
+      </div>
+    </div>
+  );
+}
 
+export default App;

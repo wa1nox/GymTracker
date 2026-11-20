@@ -39,8 +39,15 @@ export function App() {
   const [newExName, setNewExName] = useState('');
   const [newExGroup, setNewExGroup] = useState('Грудь');
 
-  const tg = window.Telegram?.WebApp;
-  const initDataRaw = tg?.initData || '';
+    const tg = window.Telegram?.WebApp;
+  const hashParams = new URLSearchParams(window.location.hash.slice(1));
+  const queryParams = new URLSearchParams(window.location.search);
+  const initDataRaw =
+    tg?.initData ||
+    hashParams.get('tgWebAppData') ||
+    queryParams.get('tgWebAppData') ||
+    '';
+
 
   useEffect(() => {
     tg?.ready?.();

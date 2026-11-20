@@ -1,9 +1,24 @@
 import { useEffect, useState } from 'react';
-import { retrieveLaunchParams, hapticFeedback } from '@telegram-apps/sdk-react';
 
 interface Exercise { id: number; name: string; muscle_group: string; }
 interface Goal { id: number; exercise_id: number; exercise_name: string; target_weight: number; target_reps: number; is_completed: boolean; }
 interface SetItem { id: number; exercise_name: string; weight: number; reps: number; created_at: string; }
+
+declare global {
+  interface Window {
+    Telegram?: {
+      WebApp?: {
+        initData?: string;
+        ready?: () => void;
+        expand?: () => void;
+        HapticFeedback?: {
+          notificationOccurred?: (type: 'error' | 'success' | 'warning') => void;
+          impactOccurred?: (style: 'light' | 'medium' | 'heavy') => void;
+        };
+      };
+    };
+  }
+}
 
 export function App() {
   const [tab, setTab] = useState<'workout' | 'goals' | 'history'>('workout');
@@ -27,12 +42,13 @@ export function App() {
   const [newExName, setNewExName] = useState('');
   const [newExGroup, setNewExGroup] = useState('Грудь');
 
-  let initDataRaw = '';
-  try {
-    initDataRaw = retrieveLaunchParams().initDataRaw || '';
-  } catch (e) {
-    console.warn('Opened outside Telegram');
-  }
+  const tg = window.Telegram?.WebApp;
+  const initDataRaw = tg?.initData || '';
+
+  useEffect(() => {
+    tg?.ready?.();
+    tg?.expand?.();
+  }, []);
 
   const apiFetch = async (url: string, options: RequestInit = {}) => {
     const res = await fetch(url, {
@@ -54,10 +70,10 @@ export function App() {
       setGoals(data.goals);
       setRecentSets(data.recent_sets);
       if (data.exercises.length > 0 && !selectedEx) {
-        setSelectedEx(data.exercises[0].id);
+        setSelectedEx(data.exercises.id);
       }
-    } catch (e: any) {
-      setError(e.message || 'Ошибка загрузки данных');
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Ошибка загрузки данных');
     } finally {
       setLoading(false);
     }
@@ -74,7 +90,7 @@ export function App() {
 
   const handleSaveSet = async () => {
     try {
-      hapticFeedback.notificationOccurred('success');
+      tg?.HapticFeedback?.notificationOccurred?.('success');
       const res = await apiFetch('/api/sets', {
         method: 'POST',
         body: JSON.stringify({ exercise_id: selectedEx, weight, reps }),
@@ -82,10 +98,10 @@ export function App() {
       if (res.goal_completed) {
         alert('🎉 Поздравляем! Цель по этому упражнению выполнена!');
       }
-      setTimer(90); // Запуск таймера отдыха на 1:30
+      setTimer(90);
       loadData();
-    } catch (e: any) {
-      alert('Ошибка сохранения: ' + e.message);
+    } catch (e: unknown) {
+      alert('Ошибка сохранения: ' + (e instanceof Error ? e.message : 'Неизвестная ошибка'));
     }
   };
 
@@ -94,7 +110,7 @@ export function App() {
       method: 'POST',
       body: JSON.stringify({ exercise_id: selectedEx, target_weight: goalWeight, target_reps: goalReps }),
     });
-    hapticFeedback.notificationOccurred('success');
+    tg?.HapticFeedback?.notificationOccurred?.('success');
     loadData();
   };
 
@@ -123,7 +139,6 @@ export function App() {
 
   return (
     <div style={{ padding: 16, paddingBottom: 80, color: '#fff', fontFamily: 'sans-serif' }}>
-      {/* Таймер отдыха сверху */}
       {timer > 0 && (
         <div style={{ ...cardStyle, background: '#1e3a5f', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <span>⏱ Отдых: <b>{Math.floor(timer / 60)}:{String(timer % 60).padStart(2, '0')}</b></span>
@@ -167,18 +182,28 @@ export function App() {
             </button>
           </div>
 
-          {/* Добавить свое упражнение */}
           <div style={cardStyle}>
             <div style={{ fontSize: 14, opacity: 0.7, marginBottom: 8 }}>Добавить своё упражнение</div>
-            <div style={{ display: 'flex', gap: 8 }}>
+            <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
               <input
                 placeholder="Название (напр. Брусья)"
                 value={newExName}
                 onChange={(e) => setNewExName(e.target.value)}
                 style={{ flex: 1, padding: 8, borderRadius: 8, border: 'none' }}
               />
-              <button onClick={handleAddExercise} style={btnStyle}>+</button>
+              <select
+                value={newExGroup}
+                onChange={(e) => setNewExGroup(e.target.value)}
+                style={{ padding: 8, borderRadius: 8, border: 'none' }}
+              >
+                <option value="Грудь">Грудь</option>
+                <option value="Спина">Спина</option>
+                <option value="Ноги">Ноги</option>
+                <option value="Плечи">Плечи</option>
+                <option value="Руки">Руки</option>
+              </select>
             </div>
+            <button onClick={handleAddExercise} style={{ ...btnStyle, width: '100%' }}>+ Добавить упражнение</button>
           </div>
         </div>
       )}
@@ -223,17 +248,6 @@ export function App() {
         </div>
       )}
 
-      {/* Нижняя навигация */}
       <div style={{
         position: 'fixed', bottom: 0, left: 0, right: 0, display: 'flex',
-        background: '#1c1c1e', borderTop: '1px solid #333', padding: '10px 0'
-      }}>
-        <button onClick={() => setTab('workout')} style={{ flex: 1, background: 'none', border: 'none', color: tab === 'workout' ? '#2481cc' : '#888', fontWeight: 600 }}>🏋️ Зал</button>
-        <button onClick={() => setTab('goals')} style={{ flex: 1, background: 'none', border: 'none', color: tab === 'goals' ? '#2481cc' : '#888', fontWeight: 600 }}>🎯 Цели</button>
-        <button onClick={() => setTab('history')} style={{ flex: 1, background: 'none', border: 'none', color: tab === 'history' ? '#2481cc' : '#888', fontWeight: 600 }}>📊 История</button>
-      </div>
-    </div>
-  );
-}
 
-export default App;

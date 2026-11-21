@@ -13,7 +13,10 @@ BOT_TOKEN = os.getenv("BOT_TOKEN", "")
 DATABASE_URL = os.getenv("DATABASE_URL", "")
 
 async def get_db():
-    conn = await asyncpg.connect(DATABASE_URL, statement_cache_size=0)
+    url = DATABASE_URL.strip()
+    if url.startswith("postgres://"):
+        url = url.replace("postgres://", "postgresql://", 1)
+    conn = await asyncpg.connect(url, statement_cache_size=0, ssl="require")
     try:
         yield conn
     finally:
@@ -62,30 +65,72 @@ async def init_app(user: dict = Depends(verify_telegram_user), conn=Depends(get_
         uid, user.get("username", "")
     )
     exercises = await conn.fetch(
-        "SELECT id, name, muscle_group FROM exercises WHERE user_id IS NULL OR user_id = $1 ORDER BY id", uid
+        "SELECT id, user_id, name, muscle_group FROM exercises WHERE user_id IS NULL OR user_id = $1 ORDER BY id", uid
     )
     goals = await conn.fetch(
         """SELECT g.id, g.exercise_id, e.name as exercise_name, g.target_weight, g.target_reps, g.is_completed
            FROM goals g JOIN exercises e ON g.exercise_id = e.id
            WHERE g.user_id = $1 ORDER BY g.is_completed ASC, g.id DESC""", uid
     )
-    recent_sets = await conn.fetch(
-        """SELECT s.id, e.name as exercise_name, s.weight, s.reps, s.created_at
-           FROM sets s
-           JOIN workouts w ON s.workout_id = w.id
-           JOIN exercises e ON s.exercise_id = e.id
-           WHERE w.user_id = $1 ORDER BY s.created_at DESC LIMIT 15""", uid
+    days = await conn.fetch(
+        """SELECT DISTINCT TO_CHAR(s.created_at, 'YYYY-MM-DD') as day
+           FROM sets s JOIN workouts w ON s.workout_id = w.id
+           WHERE w.user_id = $1 ORDER BY day DESC""", uid
     )
+    workout_days = [r["day"] for r in days]
+    selected_day = workout_days[0] if workout_days else ""
+    day_sets = []
+    if selected_day:
+        rows = await conn.fetch(
+            """SELECT s.id, e.name as exercise_name, e.muscle_group, s.weight, s.reps,
+                      TO_CHAR(s.created_at, 'HH24:MI') as time
+               FROM sets s
+               JOIN workouts w ON s.workout_id = w.id
+               JOIN exercises e ON s.exercise_id = e.id
+               WHERE w.user_id = $1 AND TO_CHAR(s.created_at, 'YYYY-MM-DD') = $2
+               ORDER BY s.created_at ASC""",
+            uid, selected_day
+        )
+        day_sets = [dict(r) for r in rows]
+
     return {
         "exercises": [dict(r) for r in exercises],
         "goals": [dict(r) for r in goals],
-        "recent_sets": [dict(r) for r in recent_sets]
+        "workout_days": workout_days,
+        "selected_day": selected_day,
+        "day_sets": day_sets
     }
+
+@app.get("/api/history")
+async def get_history(date: str = "", user: dict = Depends(verify_telegram_user), conn=Depends(get_db)):
+    uid = user["id"]
+    days = await conn.fetch(
+        """SELECT DISTINCT TO_CHAR(s.created_at, 'YYYY-MM-DD') as day
+           FROM sets s JOIN workouts w ON s.workout_id = w.id
+           WHERE w.user_id = $1 ORDER BY day DESC""", uid
+    )
+    workout_days = [r["day"] for r in days]
+    target_day = date if date else (workout_days[0] if workout_days else "")
+
+    day_sets = []
+    if target_day:
+        rows = await conn.fetch(
+            """SELECT s.id, e.name as exercise_name, e.muscle_group, s.weight, s.reps,
+                      TO_CHAR(s.created_at, 'HH24:MI') as time
+               FROM sets s
+               JOIN workouts w ON s.workout_id = w.id
+               JOIN exercises e ON s.exercise_id = e.id
+               WHERE w.user_id = $1 AND TO_CHAR(s.created_at, 'YYYY-MM-DD') = $2
+               ORDER BY s.created_at ASC""",
+            uid, target_day
+        )
+        day_sets = [dict(r) for r in rows]
+
+    return {"workout_days": workout_days, "selected_day": target_day, "day_sets": day_sets}
 
 @app.post("/api/sets")
 async def add_set(data: SetInput, user: dict = Depends(verify_telegram_user), conn=Depends(get_db)):
     uid = user["id"]
-    # Находим или создаем тренировку за сегодня
     workout = await conn.fetchrow(
         "SELECT id FROM workouts WHERE user_id = $1 AND started_at::date = CURRENT_DATE LIMIT 1", uid
     )
@@ -99,7 +144,6 @@ async def add_set(data: SetInput, user: dict = Depends(verify_telegram_user), co
         workout["id"], data.exercise_id, data.weight, data.reps
     )
 
-    # Проверяем, не выполнена ли цель
     completed_goals = await conn.fetch(
         """UPDATE goals SET is_completed = TRUE
            WHERE user_id = $1 AND exercise_id = $2 AND is_completed = FALSE
@@ -120,7 +164,23 @@ async def add_goal(data: GoalInput, user: dict = Depends(verify_telegram_user), 
 @app.post("/api/exercises")
 async def add_exercise(data: ExerciseInput, user: dict = Depends(verify_telegram_user), conn=Depends(get_db)):
     row = await conn.fetchrow(
-        "INSERT INTO exercises (user_id, name, muscle_group) VALUES ($1, $2, $3) RETURNING id, name, muscle_group",
+        "INSERT INTO exercises (user_id, name, muscle_group) VALUES ($1, $2, $3) RETURNING id, user_id, name, muscle_group",
         user["id"], data.name, data.muscle_group
     )
     return dict(row)
+
+@app.put("/api/exercises/{ex_id}")
+async def update_exercise(ex_id: int, data: ExerciseInput, user: dict = Depends(verify_telegram_user), conn=Depends(get_db)):
+    await conn.execute(
+        "UPDATE exercises SET name = $1, muscle_group = $2 WHERE id = $3 AND user_id = $4",
+        data.name, data.muscle_group, ex_id, user["id"]
+    )
+    return {"status": "updated"}
+
+@app.delete("/api/exercises/{ex_id}")
+async def delete_exercise(ex_id: int, user: dict = Depends(verify_telegram_user), conn=Depends(get_db)):
+    await conn.execute(
+        "DELETE FROM exercises WHERE id = $1 AND user_id = $2",
+        ex_id, user["id"]
+    )
+    return {"status": "deleted"}

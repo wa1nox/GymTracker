@@ -44,6 +44,22 @@ declare global {
   }
 }
 
+const ACCENTS = [
+  { id: 'orange', name: 'Огонь', color: '#ff5e3a', grad: 'linear-gradient(135deg, #ff5e3a 0%, #ff2a68 100%)' },
+  { id: 'green', name: 'Неон', color: '#10b981', grad: 'linear-gradient(135deg, #10b981 0%, #059669 100%)' },
+  { id: 'blue', name: 'Электро', color: '#3b82f6', grad: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)' },
+  { id: 'purple', name: 'Кибер', color: '#8b5cf6', grad: 'linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%)' },
+  { id: 'gold', name: 'Золото', color: '#f59e0b', grad: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)' },
+];
+
+const BACKGROUNDS = [
+  { id: 'obsidian', name: 'Обсидиан', bg: '#0f1115', card: '#181b22', nav: '#14171f' },
+  { id: 'graphite', name: 'Графит', bg: '#18181b', card: '#27272a', nav: '#1f1f23' },
+  { id: 'midnight', name: 'Полночь', bg: '#0b1120', card: '#131c31', nav: '#0f172a' },
+];
+
+const REST_OPTIONS = Array.of(60, 90, 120, 180);
+
 const GROUPS = ['Грудь', 'Спина', 'Ноги', 'Плечи', 'Руки', 'Пресс'];
 const MONTHS = [
   'Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь',
@@ -52,11 +68,16 @@ const MONTHS = [
 const DAYS = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
 
 export function App() {
-  const [tab, setTab] = useState<'workout' | 'goals' | 'history'>('workout');
+  const [tab, setTab] = useState<'workout' | 'goals' | 'history' | 'settings'>('workout');
+  const [prevTab, setPrevTab] = useState<'workout' | 'goals' | 'history'>('workout');
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [goals, setGoals] = useState<Goal[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+
+  const [accentId, setAccentId] = useState<string>(() => localStorage.getItem('gt_accent') || 'orange');
+  const [bgId, setBgId] = useState<string>(() => localStorage.getItem('gt_bg') || 'obsidian');
+  const [restSec, setRestSec] = useState<number>(() => Number(localStorage.getItem('gt_rest')) || 90);
 
   const [selectedEx, setSelectedEx] = useState<number>(1);
   const [weight, setWeight] = useState<number>(50);
@@ -89,10 +110,29 @@ export function App() {
     '';
 
   useEffect(() => {
+    const acc = ACCENTS.find((a) => a.id === accentId) || ACCENTS.at(0)!;
+    const bgObj = BACKGROUNDS.find((b) => b.id === bgId) || BACKGROUNDS.at(0)!;
+    const root = document.documentElement;
+
+    root.style.setProperty('--accent', acc.color);
+    root.style.setProperty('--accent-grad', acc.grad);
+    root.style.setProperty('--bg', bgObj.bg);
+    root.style.setProperty('--card', bgObj.card);
+    root.style.setProperty('--nav-bg', bgObj.nav);
+
+    localStorage.setItem('gt_accent', acc.id);
+    localStorage.setItem('gt_bg', bgObj.id);
+    tg?.setHeaderColor?.(bgObj.bg);
+    tg?.setBackgroundColor?.(bgObj.bg);
+  }, [accentId, bgId]);
+
+  useEffect(() => {
+    localStorage.setItem('gt_rest', String(restSec));
+  }, [restSec]);
+
+  useEffect(() => {
     tg?.ready?.();
     tg?.expand?.();
-    tg?.setHeaderColor?.('#0f1115');
-    tg?.setBackgroundColor?.('#0f1115');
   }, []);
 
   const api = async (url: string, opts: RequestInit = {}) => {
@@ -144,6 +184,16 @@ export function App() {
 
   const currentEx = exercises.find((e) => e.id === selectedEx);
 
+  const toggleSettings = () => {
+    tg?.HapticFeedback?.impactOccurred?.('light');
+    if (tab === 'settings') {
+      setTab(prevTab);
+    } else {
+      setPrevTab(tab);
+      setTab('settings');
+    }
+  };
+
   const selectDay = async (day: string) => {
     tg?.HapticFeedback?.impactOccurred?.('light');
     setSelectedDay(day);
@@ -160,7 +210,7 @@ export function App() {
         body: JSON.stringify({ exercise_id: selectedEx, weight, reps }),
       });
       if (res.goal_completed) alert('Цель выполнена!');
-      setTimer(90);
+      setTimer(restSec);
       loadData();
     } catch (e: unknown) {
       alert(e instanceof Error ? e.message : 'Ошибка');
@@ -294,8 +344,28 @@ export function App() {
     );
   }
 
+  const pageTitles: Record<string, string> = {
+    workout: 'Тренировка',
+    goals: 'Цели',
+    history: 'История',
+    settings: 'Настройки',
+  };
+
   return (
     <div className="app-wrap">
+      <div className="top-header">
+        <h2 className="page-title" style={{ margin: 0 }}>
+          {pageTitles[tab]}
+        </h2>
+        <button
+          className={`icon-btn ${tab === 'settings' ? 'active' : ''}`}
+          onClick={toggleSettings}
+          title="Настройки"
+        >
+          {tab === 'settings' ? '✕' : '⚙️'}
+        </button>
+      </div>
+
       {timer > 0 && (
         <div className="card row-between" style={{ borderColor: 'var(--accent)' }}>
           <span style={{ fontSize: 16 }}>
@@ -312,8 +382,6 @@ export function App() {
 
       {tab === 'workout' && (
         <div>
-          <h2 className="page-title">Тренировка</h2>
-
           <div className="card">
             <div className="row-between" style={{ marginBottom: 8 }}>
               <label style={{ color: 'var(--muted)', fontSize: 14 }}>
@@ -503,7 +571,6 @@ export function App() {
 
       {tab === 'goals' && (
         <div>
-          <h2 className="page-title">Цели</h2>
           <div className="card">
             <select
               className="input"
@@ -566,15 +633,18 @@ export function App() {
       )}
       {tab === 'history' && (
         <div>
-          <div className="row-between" style={{ marginBottom: 14 }}>
-            <h2 className="page-title" style={{ margin: 0 }}>
-              История
-            </h2>
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'flex-end',
+              marginBottom: 12,
+            }}
+          >
             <button
               className="btn-sec btn-sm"
               onClick={() => setShowCal((v) => !v)}
             >
-              {showCal ? 'Скрыть календарь' : 'Календарь'}
+              {showCal ? 'Скрыть календарь' : 'Показать календарь'}
             </button>
           </div>
 
@@ -621,7 +691,7 @@ export function App() {
               <button
                 className="btn-sec btn-sm"
                 disabled={dayIdx === -1 || dayIdx >= workoutDays.length - 1}
-                onClick={() => selectDay(workoutDays[dayIdx + 1])}
+                onClick={() => selectDay(workoutDays.at(dayIdx + 1)!)}
                 style={{
                   opacity:
                     dayIdx === -1 || dayIdx >= workoutDays.length - 1 ? 0.4 : 1,
@@ -633,7 +703,7 @@ export function App() {
               <button
                 className="btn-sec btn-sm"
                 disabled={dayIdx <= 0}
-                onClick={() => selectDay(workoutDays[dayIdx - 1])}
+                onClick={() => selectDay(workoutDays.at(dayIdx - 1)!)}
                 style={{ opacity: dayIdx <= 0 ? 0.4 : 1 }}
               >
                 След. день
@@ -679,6 +749,89 @@ export function App() {
               </div>
             ))
           )}
+        </div>
+      )}
+
+      {tab === 'settings' && (
+        <div>
+          <div className="card">
+            <div style={{ fontWeight: 700, marginBottom: 4 }}>Цвет акцента</div>
+            <div style={{ fontSize: 13, color: 'var(--muted)' }}>
+              Меняет цвет кнопок, индикаторов и активных вкладок
+            </div>
+            <div className="color-grid">
+              {ACCENTS.map((a) => (
+                <button
+                  key={a.id}
+                  title={a.name}
+                  className={`color-swatch ${accentId === a.id ? 'selected' : ''}`}
+                  style={{ background: a.grad }}
+                  onClick={() => {
+                    tg?.HapticFeedback?.impactOccurred?.('light');
+                    setAccentId(a.id);
+                  }}
+                />
+              ))}
+            </div>
+          </div>
+
+          <div className="card">
+            <div style={{ fontWeight: 700, marginBottom: 4 }}>Тема фона</div>
+            <div
+              style={{
+                fontSize: 13,
+                color: 'var(--muted)',
+                marginBottom: 12,
+              }}
+            >
+              Оттенок основного экрана и карточек
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              {BACKGROUNDS.map((b) => (
+                <button
+                  key={b.id}
+                  className={bgId === b.id ? 'btn' : 'btn-sec'}
+                  style={{ flex: 1, fontSize: 13 }}
+                  onClick={() => {
+                    tg?.HapticFeedback?.impactOccurred?.('light');
+                    setBgId(b.id);
+                  }}
+                >
+                  {b.name}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="card">
+            <div style={{ fontWeight: 700, marginBottom: 4 }}>
+              Таймер отдыха по умолчанию
+            </div>
+            <div
+              style={{
+                fontSize: 13,
+                color: 'var(--muted)',
+                marginBottom: 12,
+              }}
+            >
+              Автоматически запускается после записи подхода
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              {REST_OPTIONS.map((sec) => (
+                <button
+                  key={sec}
+                  className={restSec === sec ? 'btn' : 'btn-sec'}
+                  style={{ flex: 1, fontSize: 13 }}
+                  onClick={() => {
+                    tg?.HapticFeedback?.impactOccurred?.('light');
+                    setRestSec(sec);
+                  }}
+                >
+                  {sec} с
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
       )}
 

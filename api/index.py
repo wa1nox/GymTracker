@@ -19,7 +19,7 @@ async def get_db():
         url = url.replace("postgres://", "postgresql://", 1)
     conn = await asyncpg.connect(url, statement_cache_size=0, ssl="require")
     try:
-        yield conn
+     yield conn
     finally:
         await conn.close()
 

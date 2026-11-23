@@ -25,13 +25,14 @@ body,
   font-family: sans-serif;
 }
 
-
 .app-wrap {
-  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
   max-width: 100%;
-  box-sizing: border-box;
-  overflow-x: hidden;
+  min-height: 100vh;
   padding: 16px 16px 105px;
+  overflow-x: hidden;
 }
 
 .page-title {
@@ -206,7 +207,9 @@ body,
 }
 
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 .top-header {
   display: flex;

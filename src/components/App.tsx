@@ -32,6 +32,8 @@ declare global {
         initData?: string;
         ready?: () => void;
         expand?: () => void;
+        setHeaderColor?: (color: string) => void;
+        setBackgroundColor?: (color: string) => void;
         HapticFeedback?: {
           notificationOccurred?: (type: 'error' | 'success' | 'warning') => void;
           impactOccurred?: (style: 'light' | 'medium' | 'heavy') => void;
@@ -41,6 +43,18 @@ declare global {
   }
 }
 
+const THEME = {
+  bg: '#0f1115',
+  card: '#181b22',
+  cardBorder: '1px solid #262a35',
+  accent: '#ff5e3a',
+  accentGradient: 'linear-gradient(135deg, #ff5e3a 0%, #ff2a68 100%)',
+  success: '#10b981',
+  text: '#f3f4f6',
+  textMuted: '#9ca3af',
+  navBg: '#14171f',
+};
+
 const GROUPS = ['Грудь', 'Спина', 'Ноги', 'Плечи', 'Руки', 'Пресс'];
 const MONTHS = [
   'Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь',
@@ -49,26 +63,38 @@ const MONTHS = [
 const DAYS = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
 
 const btn: React.CSSProperties = {
-  padding: '10px 14px',
-  borderRadius: 10,
+  padding: '12px 16px',
+  borderRadius: 12,
   border: 'none',
-  background: '#2481cc',
+  background: THEME.accentGradient,
   color: '#fff',
-  fontWeight: 600,
+  fontWeight: 700,
+  fontSize: 15,
   cursor: 'pointer',
 };
 
+const secondaryBtn: React.CSSProperties = {
+  ...btn,
+  background: '#252a36',
+  fontWeight: 600,
+};
+
 const card: React.CSSProperties = {
-  background: 'rgba(255,255,255,0.06)',
-  borderRadius: 14,
-  padding: 16,
-  marginBottom: 14,
+  background: THEME.card,
+  border: THEME.cardBorder,
+  borderRadius: 18,
+  padding: 18,
+  marginBottom: 16,
+  boxShadow: '0 8px 24px rgba(0, 0, 0, 0.25)',
 };
 
 const inp: React.CSSProperties = {
-  padding: 8,
-  borderRadius: 8,
-  border: 'none',
+  padding: '12px 14px',
+  borderRadius: 12,
+  border: '1px solid #2e3442',
+  background: '#101319',
+  color: '#fff',
+  fontSize: 15,
 };
 
 export function App() {
@@ -111,6 +137,8 @@ export function App() {
   useEffect(() => {
     tg?.ready?.();
     tg?.expand?.();
+    tg?.setHeaderColor?.(THEME.bg);
+    tg?.setBackgroundColor?.(THEME.bg);
   }, []);
 
   const api = async (url: string, opts: RequestInit = {}) => {
@@ -278,26 +306,26 @@ export function App() {
           key={dateStr}
           onClick={() => selectDay(dateStr)}
           style={{
-            padding: '8px 0',
-            borderRadius: 10,
-            border: chosen ? '2px solid #2481cc' : '1px solid transparent',
-            background: active ? 'rgba(36,129,204,0.28)' : 'rgba(255,255,255,0.04)',
-            color: '#fff',
+            padding: '10px 0',
+            borderRadius: 12,
+            border: chosen ? `2px solid ${THEME.accent}` : '1px solid transparent',
+            background: active ? 'rgba(255, 94, 58, 0.2)' : '#101319',
+            color: THEME.text,
             fontWeight: active || chosen ? 700 : 400,
             cursor: 'pointer',
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
-            gap: 2,
+            gap: 3,
           }}
         >
           <span>{d}</span>
           <span
             style={{
-              width: 5,
-              height: 5,
+              width: 6,
+              height: 6,
               borderRadius: '50%',
-              background: active ? '#4caf50' : 'transparent',
+              background: active ? THEME.success : 'transparent',
             }}
           />
         </button>
@@ -314,27 +342,81 @@ export function App() {
 
   const dayIdx = workoutDays.indexOf(selectedDay);
 
-  if (loading) return <div style={{ padding: 20, color: '#fff' }}>Загрузка...</div>;
-  if (error) return <div style={{ padding: 20, color: '#ff6b6b' }}>{error}</div>;
+  if (loading) {
+    return (
+      <div
+        style={{
+          minHeight: '100vh',
+          background: THEME.bg,
+          color: THEME.text,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontFamily: 'sans-serif',
+          gap: 16,
+        }}
+      >
+        <style>{`
+          @keyframes spin { to { transform: rotate(360deg); } }
+          @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+        `}</style>
+        <div
+          style={{
+            width: 48,
+            height: 48,
+            borderRadius: '50%',
+            border: '4px solid #252a36',
+            borderTopColor: THEME.accent,
+            animation: 'spin 0.8s linear infinite',
+          }}
+        />
+        <div style={{ fontSize: 18, fontWeight: 700, letterSpacing: 0.5 }}>
+          GYM TRACKER
+        </div>
+        <div style={{ fontSize: 13, color: THEME.textMuted, animation: 'pulse 1.5s infinite' }}>
+          Синхронизация тренировок...
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div style={{ minHeight: '100vh', background: THEME.bg, padding: 20, color: '#ff6b6b' }}>
+        {error}
+      </div>
+    );
+  }
 
   return (
-    <div style={{ padding: 16, paddingBottom: 84, color: '#fff', fontFamily: 'sans-serif' }}>
+    <div
+      style={{
+        minHeight: '100vh',
+        background: THEME.bg,
+        padding: 16,
+        paddingBottom: 105,
+        color: THEME.text,
+        fontFamily: 'sans-serif',
+      }}
+    >
       {timer > 0 && (
         <div
           style={{
             ...card,
-            background: '#1e3a5f',
+            background: 'linear-gradient(135deg, #1f2937 0%, #111827 100%)',
+            border: `1px solid ${THEME.accent}`,
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
           }}
         >
-          <span>
-            Отдых: <b>{Math.floor(timer / 60)}:{String(timer % 60).padStart(2, '0')}</b>
+          <span style={{ fontSize: 16 }}>
+            Отдых: <b style={{ color: THEME.accent, fontSize: 18 }}>{Math.floor(timer / 60)}:{String(timer % 60).padStart(2, '0')}</b>
           </span>
           <button
             onClick={() => setTimer(0)}
-            style={{ ...btn, padding: '4px 10px', background: '#444' }}
+            style={{ ...secondaryBtn, padding: '6px 12px', fontSize: 13 }}
           >
             Сброс
           </button>
@@ -343,7 +425,7 @@ export function App() {
 
       {tab === 'workout' && (
         <div>
-          <h2 style={{ marginTop: 0 }}>Тренировка</h2>
+          <h2 style={{ marginTop: 0, fontSize: 22 }}>Тренировка</h2>
 
           <div style={card}>
             <div
@@ -351,36 +433,30 @@ export function App() {
                 display: 'flex',
                 justifyContent: 'space-between',
                 alignItems: 'center',
-                marginBottom: 6,
+                marginBottom: 8,
               }}
             >
-              <label style={{ opacity: 0.7 }}>Упражнение:</label>
+              <label style={{ color: THEME.textMuted, fontSize: 14 }}>Упражнение</label>
               {currentEx && currentEx.user_id !== null && !editing && (
                 <div style={{ display: 'flex', gap: 6 }}>
                   <button
                     onClick={startEdit}
-                    style={{ ...btn, padding: '4px 10px', fontSize: 12, background: '#3a3a3c' }}
+                    style={{ ...secondaryBtn, padding: '6px 10px', fontSize: 12 }}
                   >
                     Изменить
                   </button>
                   <button
                     onClick={deleteExercise}
-                    style={{ ...btn, padding: '4px 10px', fontSize: 12, background: '#c0392b' }}
+                    style={{ ...btn, padding: '6px 10px', fontSize: 12, background: '#dc2626' }}
                   >
                     Удалить
                   </button>
                 </div>
               )}
             </div>
+
             {editing ? (
-              <div
-                style={{
-                  marginBottom: 14,
-                  padding: 10,
-                  background: 'rgba(0,0,0,0.25)',
-                  borderRadius: 10,
-                }}
-              >
+              <div style={{ marginBottom: 14, padding: 12, background: '#101319', borderRadius: 12 }}>
                 <input
                   value={editName}
                   onChange={(e) => setEditName(e.target.value)}
@@ -389,24 +465,15 @@ export function App() {
                 <select
                   value={editGroup}
                   onChange={(e) => setEditGroup(e.target.value)}
-                  style={{ ...inp, width: '100%', marginBottom: 8 }}
+                  style={{ ...inp, width: '100%', marginBottom: 10 }}
                 >
                   {GROUPS.map((g) => (
-                    <option key={g} value={g}>
-                      {g}
-                    </option>
+                    <option key={g} value={g}>{g}</option>
                   ))}
                 </select>
                 <div style={{ display: 'flex', gap: 8 }}>
-                  <button onClick={updateExercise} style={{ ...btn, flex: 1 }}>
-                    Сохранить
-                  </button>
-                  <button
-                    onClick={() => setEditing(false)}
-                    style={{ ...btn, flex: 1, background: '#444' }}
-                  >
-                    Отмена
-                  </button>
+                  <button onClick={updateExercise} style={{ ...btn, flex: 1 }}>Сохранить</button>
+                  <button onClick={() => setEditing(false)} style={{ ...secondaryBtn, flex: 1 }}>Отмена</button>
                 </div>
               </div>
             ) : (
@@ -416,13 +483,7 @@ export function App() {
                   setSelectedEx(Number(e.target.value));
                   setEditing(false);
                 }}
-                style={{
-                  width: '100%',
-                  padding: 10,
-                  borderRadius: 8,
-                  fontSize: 16,
-                  marginBottom: 14,
-                }}
+                style={{ ...inp, width: '100%', fontSize: 16, fontWeight: 600, marginBottom: 18 }}
               >
                 {exercises.map((ex) => (
                   <option key={ex.id} value={ex.id}>
@@ -432,116 +493,76 @@ export function App() {
               </select>
             )}
 
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                marginBottom: 12,
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <span>Вес:</span>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ color: THEME.textMuted }}>Вес:</span>
                 <input
                   type="number"
                   step="0.25"
                   value={weight}
                   onChange={(e) => setWeight(Math.max(0, Number(e.target.value)))}
-                  style={{
-                    ...inp,
-                    width: 74,
-                    textAlign: 'center',
-                    fontWeight: 700,
-                    fontSize: 16,
-                  }}
+                  style={{ ...inp, width: 78, textAlign: 'center', fontWeight: 700, fontSize: 17 }}
                 />
                 <span>кг</span>
               </div>
-              <div style={{ display: 'flex', gap: 6 }}>
-                <button onClick={() => stepWeight(-1.25)} style={btn}>
-                  -1.25
-                </button>
-                <button onClick={() => stepWeight(1.25)} style={btn}>
-                  +1.25
-                </button>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button onClick={() => stepWeight(-1.25)} style={secondaryBtn}>-1.25</button>
+                <button onClick={() => stepWeight(1.25)} style={secondaryBtn}>+1.25</button>
               </div>
             </div>
 
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                marginBottom: 16,
-              }}
-            >
-              <span>
-                Повторения: <b>{reps}</b>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+              <span style={{ color: THEME.textMuted }}>
+                Повторения: <b style={{ color: THEME.text, fontSize: 18 }}>{reps}</b>
               </span>
-              <div style={{ display: 'flex', gap: 6 }}>
-                <button onClick={() => setReps((r) => Math.max(1, r - 1))} style={btn}>
-                  -1
-                </button>
-                <button onClick={() => setReps((r) => r + 1)} style={btn}>
-                  +1
-                </button>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button onClick={() => setReps((r) => Math.max(1, r - 1))} style={secondaryBtn}>-1</button>
+                <button onClick={() => setReps((r) => r + 1)} style={secondaryBtn}>+1</button>
               </div>
             </div>
 
-            <button
-              onClick={saveSet}
-              style={{ ...btn, width: '100%', padding: 14, fontSize: 16 }}
-            >
+            <button onClick={saveSet} style={{ ...btn, width: '100%', padding: 16, fontSize: 16 }}>
               Записать подход
             </button>
           </div>
 
           <div style={card}>
-            <div style={{ fontSize: 14, opacity: 0.7, marginBottom: 8 }}>
+            <div style={{ fontSize: 14, color: THEME.textMuted, marginBottom: 10 }}>
               Добавить своё упражнение
             </div>
-            <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+            <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
               <input
                 placeholder="Название"
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}
                 style={{ ...inp, flex: 1 }}
               />
-              <select
-                value={newGroup}
-                onChange={(e) => setNewGroup(e.target.value)}
-                style={inp}
-              >
+              <select value={newGroup} onChange={(e) => setNewGroup(e.target.value)} style={inp}>
                 {GROUPS.map((g) => (
-                  <option key={g} value={g}>
-                    {g}
-                  </option>
+                  <option key={g} value={g}>{g}</option>
                 ))}
               </select>
             </div>
-            <button onClick={addExercise} style={{ ...btn, width: '100%' }}>
+            <button onClick={addExercise} style={{ ...secondaryBtn, width: '100%' }}>
               + Добавить упражнение
             </button>
           </div>
         </div>
       )}
-
       {tab === 'goals' && (
         <div>
-          <h2 style={{ marginTop: 0 }}>Цели</h2>
+          <h2 style={{ marginTop: 0, fontSize: 22 }}>Цели</h2>
           <div style={card}>
             <select
               value={selectedEx}
               onChange={(e) => setSelectedEx(Number(e.target.value))}
-              style={{ width: '100%', padding: 10, borderRadius: 8, marginBottom: 10 }}
+              style={{ ...inp, width: '100%', marginBottom: 12 }}
             >
               {exercises.map((ex) => (
-                <option key={ex.id} value={ex.id}>
-                  {ex.name}
-                </option>
+                <option key={ex.id} value={ex.id}>{ex.name}</option>
               ))}
             </select>
-            <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
+            <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
               <input
                 type="number"
                 step="0.25"
@@ -568,110 +589,55 @@ export function App() {
               key={g.id}
               style={{
                 ...card,
-                borderLeft: g.is_completed ? '4px solid #4caf50' : '4px solid #2481cc',
+                borderLeft: g.is_completed ? `4px solid ${THEME.success}` : `4px solid ${THEME.accent}`,
               }}
             >
-              <div style={{ fontWeight: 600 }}>
+              <div style={{ fontWeight: 700, fontSize: 16 }}>
                 {g.exercise_name} {g.is_completed ? '(Выполнено)' : ''}
               </div>
-              <div style={{ opacity: 0.8 }}>
-                Цель: {g.target_weight} кг x {g.target_reps} раз
+              <div style={{ color: THEME.textMuted, marginTop: 4 }}>
+                Цель: <b style={{ color: THEME.text }}>{g.target_weight} кг x {g.target_reps} раз</b>
               </div>
             </div>
           ))}
         </div>
       )}
+
       {tab === 'history' && (
         <div>
-          <div
-            style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              marginBottom: 12,
-            }}
-          >
-            <h2 style={{ margin: 0 }}>История</h2>
-            <button
-              onClick={() => setShowCal((v) => !v)}
-              style={{ ...btn, padding: '6px 12px', fontSize: 13 }}
-            >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+            <h2 style={{ margin: 0, fontSize: 22 }}>История</h2>
+            <button onClick={() => setShowCal((v) => !v)} style={{ ...secondaryBtn, padding: '8px 14px', fontSize: 13 }}>
               {showCal ? 'Скрыть календарь' : 'Календарь'}
             </button>
           </div>
 
           {showCal && (
             <div style={card}>
-              <div
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  marginBottom: 10,
-                }}
-              >
-                <button
-                  onClick={() => shiftMonth(-1)}
-                  style={{ ...btn, padding: '4px 10px' }}
-                >
-                  {'<'}
-                </button>
-                <b>
-                  {MONTHS[month]} {year}
-                </b>
-                <button
-                  onClick={() => shiftMonth(1)}
-                  style={{ ...btn, padding: '4px 10px' }}
-                >
-                  {'>'}
-                </button>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                <button onClick={() => shiftMonth(-1)} style={{ ...secondaryBtn, padding: '6px 12px' }}>{'<'}</button>
+                <b style={{ fontSize: 16 }}>{MONTHS[month]} {year}</b>
+                <button onClick={() => shiftMonth(1)} style={{ ...secondaryBtn, padding: '6px 12px' }}>{'>'}</button>
               </div>
 
-              <div
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(7, 1fr)',
-                  gap: 4,
-                  textAlign: 'center',
-                  fontSize: 12,
-                  opacity: 0.6,
-                  marginBottom: 6,
-                }}
-              >
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4, textAlign: 'center', fontSize: 12, color: THEME.textMuted, marginBottom: 8 }}>
                 {DAYS.map((d) => (
                   <div key={d}>{d}</div>
                 ))}
               </div>
 
-              <div
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(7, 1fr)',
-                  gap: 4,
-                }}
-              >
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 6 }}>
                 {renderCells()}
               </div>
             </div>
           )}
 
           {workoutDays.length > 0 && (
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                marginBottom: 12,
-              }}
-            >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
               <button
                 disabled={dayIdx === -1 || dayIdx >= workoutDays.length - 1}
                 onClick={() => selectDay(workoutDays[dayIdx + 1])}
-                style={{
-                  ...btn,
-                  padding: '6px 10px',
-                  opacity: dayIdx === -1 || dayIdx >= workoutDays.length - 1 ? 0.4 : 1,
-                }}
+                style={{ ...secondaryBtn, padding: '8px 12px', opacity: dayIdx === -1 || dayIdx >= workoutDays.length - 1 ? 0.4 : 1 }}
               >
                 Пред. день
               </button>
@@ -679,11 +645,7 @@ export function App() {
               <button
                 disabled={dayIdx <= 0}
                 onClick={() => selectDay(workoutDays[dayIdx - 1])}
-                style={{
-                  ...btn,
-                  padding: '6px 10px',
-                  opacity: dayIdx <= 0 ? 0.4 : 1,
-                }}
+                style={{ ...secondaryBtn, padding: '8px 12px', opacity: dayIdx <= 0 ? 0.4 : 1 }}
               >
                 След. день
               </button>
@@ -691,31 +653,25 @@ export function App() {
           )}
 
           {Object.keys(grouped).length === 0 ? (
-            <div style={{ ...card, opacity: 0.6, textAlign: 'center' }}>
+            <div style={{ ...card, color: THEME.textMuted, textAlign: 'center' }}>
               За выбранный день тренировок не найдено
             </div>
           ) : (
             Object.entries(grouped).map(([name, items]) => (
               <div key={name} style={card}>
-                <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 8 }}>
-                  {name}
-                </div>
+                <div style={{ fontWeight: 700, fontSize: 17, marginBottom: 10 }}>{name}</div>
                 {items.map((s, idx) => (
                   <div
                     key={s.id}
                     style={{
                       display: 'flex',
                       justifyContent: 'space-between',
-                      padding: '4px 0',
-                      borderTop: idx > 0 ? '1px solid rgba(255,255,255,0.08)' : 'none',
+                      padding: '6px 0',
+                      borderTop: idx > 0 ? '1px solid #262a35' : 'none',
                     }}
                   >
-                    <span>
-                      Подход {idx + 1}: <b>{s.weight} кг x {s.reps}</b>
-                    </span>
-                    <span style={{ opacity: 0.5, fontSize: 12 }}>
-                      {s.time}
-                    </span>
+                    <span>Подход {idx + 1}: <b>{s.weight} кг x {s.reps}</b></span>
+                    <span style={{ color: THEME.textMuted, fontSize: 13 }}>{s.time}</span>
                   </div>
                 ))}
               </div>
@@ -731,47 +687,46 @@ export function App() {
           left: 0,
           right: 0,
           display: 'flex',
-          background: '#1c1c1e',
-          borderTop: '1px solid #333',
-          padding: '10px 0',
+          gap: 8,
+          background: THEME.navBg,
+          borderTop: '1px solid #262a35',
+          padding: '10px 12px 18px',
         }}
       >
-        <button
-          onClick={() => setTab('workout')}
-          style={{
-            flex: 1,
-            background: 'none',
-            border: 'none',
-            color: tab === 'workout' ? '#2481cc' : '#888',
-            fontWeight: 600,
-          }}
-        >
-          Зал
-        </button>
-        <button
-          onClick={() => setTab('goals')}
-          style={{
-            flex: 1,
-            background: 'none',
-            border: 'none',
-            color: tab === 'goals' ? '#2481cc' : '#888',
-            fontWeight: 600,
-          }}
-        >
-          Цели
-        </button>
-        <button
-          onClick={() => setTab('history')}
-          style={{
-            flex: 1,
-            background: 'none',
-            border: 'none',
-            color: tab === 'history' ? '#2481cc' : '#888',
-            fontWeight: 600,
-          }}
-        >
-          История
-        </button>
+        {[
+          { id: 'workout', label: 'Зал', icon: '🏋️' },
+          { id: 'goals', label: 'Цели', icon: '🎯' },
+          { id: 'history', label: 'История', icon: '📅' },
+        ].map((item) => {
+          const active = tab === item.id;
+          return (
+            <button
+              key={item.id}
+              onClick={() => {
+                tg?.HapticFeedback?.impactOccurred?.('light');
+                setTab(item.id as 'workout' | 'goals' | 'history');
+              }}
+              style={{
+                flex: 1,
+                padding: '10px 0',
+                borderRadius: 14,
+                border: 'none',
+                background: active ? THEME.accentGradient : 'transparent',
+                color: active ? '#fff' : THEME.textMuted,
+                fontWeight: 700,
+                fontSize: 14,
+                cursor: 'pointer',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: 4,
+              }}
+            >
+              <span style={{ fontSize: 18 }}>{item.icon}</span>
+              <span>{item.label}</span>
+            </button>
+          );
+        })}
       </div>
     </div>
   );

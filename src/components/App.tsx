@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import '../styles.css';
+import { THEORY_CATEGORIES, THEORY_ARTICLES, estimateReadMinutes } from '../theoryData';
 
 interface Exercise {
   id: number;
@@ -80,9 +81,12 @@ const MONTHS = [
 ];
 const DAYS = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
 
-type TabType = 'workout' | 'goals' | 'history' | 'stats' | 'settings';
+type TabType = 'workout' | 'goals' | 'history' | 'stats' | 'theory' | 'settings';
 
 export function App() {
+  const [theoryCat, setTheoryCat] = useState<'start' | 'progress' | 'technique' | 'health'>('start');
+  const [openArticleId, setOpenArticleId] = useState<string>('start-1');
+
   const [tab, setTab] = useState<TabType>('workout');
   const [prevTab, setPrevTab] = useState<Exclude<TabType, 'settings'>>('workout');
   const [exercises, setExercises] = useState<Exercise[]>([]);
@@ -403,28 +407,106 @@ export function App() {
     );
   }
 
-  const pageTitles: Record<TabType, string> = {
-    workout: 'Тренировка',
-    goals: 'Цели',
-    history: 'История',
-    stats: 'Статистика',
-    settings: 'Настройки',
-  };
+const pageTitles: Record<TabType, string> = {
+  workout: 'Тренировка',
+  goals: 'Цели',
+  history: 'История',
+  stats: 'Прогресс',
+  theory: 'База знаний',
+  settings: 'Настройки',
+};
 
   return (
     <div className="app-wrap">
-      <div className="top-header">
-        <h2 className="page-title" style={{ margin: 0 }}>
-          {pageTitles[tab]}
-        </h2>
-        <button
-          className={`icon-btn ${tab === 'settings' ? 'active' : ''}`}
-          onClick={toggleSettings}
-          title="Настройки"
-        >
-          {tab === 'settings' ? '✕' : '⚙️'}
-        </button>
-      </div>
+         <div className="top-header">
+     <h2 className="page-title" style={{ margin: 0 }}>
+       {pageTitles[tab]}
+     </h2>
+     <div style={{ display: 'flex', gap: 8 }}>
+       <button
+         className={`icon-btn ${tab === 'theory' ? 'active' : ''}`}
+         onClick={() => {
+           tg?.HapticFeedback?.impactOccurred?.('light');
+           if (tab === 'theory') {
+             setTab(prevTab);
+           } else {
+             if (tab !== 'settings') setPrevTab(tab);
+             setTab('theory');
+           }
+         }}
+         title="Теория"
+       >
+         📖
+       </button>
+       <button
+         className={`icon-btn ${tab === 'settings' ? 'active' : ''}`}
+         onClick={toggleSettings}
+         title="Настройки"
+       >
+   {tab === 'theory' && (
+     <div>
+       <div className="theory-tabs">
+         {THEORY_CATEGORIES.map((cat) => (
+           <button
+             key={cat.id}
+             className={`theory-tab ${theoryCat === cat.id ? 'active' : ''}`}
+             onClick={() => {
+               tg?.HapticFeedback?.impactOccurred?.('light');
+               setTheoryCat(cat.id);
+             }}
+           >
+             {cat.label}
+           </button>
+         ))}
+       </div>
+
+       {THEORY_ARTICLES.filter((art) => art.category === theoryCat).map((art) => {
+         const isOpen = openArticleId === art.id;
+         const mins = estimateReadMinutes(art.content);
+         return (
+           <div
+             key={art.id}
+             className="card"
+             onClick={() => {
+               tg?.HapticFeedback?.impactOccurred?.('light');
+               setOpenArticleId(isOpen ? '' : art.id);
+             }}
+             style={{ cursor: 'pointer' }}
+           >
+             <div className="row-between" style={{ alignItems: 'flex-start', gap: 10 }}>
+               <div>
+                 <div style={{ fontWeight: 700, fontSize: 16 }}>{art.title}</div>
+                 <div style={{ fontSize: 13, color: 'var(--muted)', marginTop: 4 }}>
+                   {art.summary}
+                 </div>
+               </div>
+               <span style={{ color: 'var(--accent)', fontWeight: 700 }}>
+                 {isOpen ? '▲' : '▼'}
+               </span>
+             </div>
+
+             {isOpen && (
+               <div className="theory-body">
+                 {art.content.map((paragraph, idx) => (
+                   <p key={idx}>{paragraph}</p>
+                 ))}
+               </div>
+             )}
+
+             <div className="read-time">
+               <span>⏱ ~{mins} мин чтения</span>
+             </div>
+           </div>
+         );
+       })}
+     </div>
+   )}
+
+         {tab === 'settings' ? '✕' : '⚙️'}
+       </button>
+     </div>
+   </div>
+
 
       {timer > 0 && (
         <div className="card row-between" style={{ borderColor: 'var(--accent)' }}>

@@ -110,8 +110,8 @@ export function App() {
     '';
 
   useEffect(() => {
-    const acc = ACCENTS.find((a) => a.id === accentId) || ACCENTS.at(0)!;
-    const bgObj = BACKGROUNDS.find((b) => b.id === bgId) || BACKGROUNDS.at(0)!;
+    const acc = ACCENTS.find((a) => a.id === accentId) || ACCENTS.find(Boolean)!;
+    const bgObj = BACKGROUNDS.find((b) => b.id === bgId) || BACKGROUNDS.find(Boolean)!;
     const root = document.documentElement;
 
     root.style.setProperty('--accent', acc.color);
@@ -691,7 +691,7 @@ export function App() {
               <button
                 className="btn-sec btn-sm"
                 disabled={dayIdx === -1 || dayIdx >= workoutDays.length - 1}
-                onClick={() => selectDay(workoutDays.at(dayIdx + 1)!)}
+                onClick={() => selectDay(workoutDays.slice(dayIdx + 1).find(Boolean)!)}
                 style={{
                   opacity:
                     dayIdx === -1 || dayIdx >= workoutDays.length - 1 ? 0.4 : 1,
@@ -703,7 +703,7 @@ export function App() {
               <button
                 className="btn-sec btn-sm"
                 disabled={dayIdx <= 0}
-                onClick={() => selectDay(workoutDays.at(dayIdx - 1)!)}
+                onClick={() => selectDay(workoutDays.slice(dayIdx - 1).find(Boolean)!)}
                 style={{ opacity: dayIdx <= 0 ? 0.4 : 1 }}
               >
                 След. день

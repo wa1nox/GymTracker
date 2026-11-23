@@ -23,6 +23,9 @@ body,
 
 .app-wrap {
   min-height: 100vh;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow-x: hidden;
   padding: 16px 16px 105px;
 }
 
@@ -38,6 +41,9 @@ body,
   padding: 18px;
   margin-bottom: 16px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+  box-sizing: border-box;
+  text-align: left;
+  word-wrap: break-word;
 }
 
 .row-between {
@@ -304,22 +310,21 @@ body,
   margin-top: 6px;
 }
 .theory-tabs {
-  display: flex;
-  gap: 6px;
-  overflow-x: auto;
-  padding-bottom: 6px;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
   margin-bottom: 14px;
 }
 
 .theory-tab {
-  padding: 8px 14px;
+  padding: 10px 8px;
   border-radius: 12px;
   border: 1px solid var(--border);
   background: var(--card);
   color: var(--muted);
   font-size: 13px;
   font-weight: 600;
-  white-space: nowrap;
+  text-align: center;
   cursor: pointer;
 }
 

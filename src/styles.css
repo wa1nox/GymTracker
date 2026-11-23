@@ -10,29 +10,40 @@
   --nav-bg: #14171f;
 }
 
+*,
+*::before,
+*::after {
+  box-sizing: border-box !important;
+}
+
 html,
 body,
 #root {
   margin: 0 !important;
   padding: 0 !important;
   width: 100% !important;
-  max-width: 100vw !important;
+  max-width: 100% !important;
   min-height: 100vh;
   display: block !important;
   overflow-x: hidden !important;
   background-color: var(--bg) !important;
   color: var(--text);
-  font-family: sans-serif;
+  font-family:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 }
 
 .app-wrap {
-  display: flex;
-  flex-direction: column;
-  width: 100%;
-  max-width: 100%;
+  display: block !important;
+  width: 100% !important;
+  max-width: 100% !important;
   min-height: 100vh;
-  padding: 16px 16px 105px;
-  overflow-x: hidden;
+  padding: 14px 14px 105px !important;
+  overflow-x: hidden !important;
+}
+
+.app-wrap > div {
+  width: 100% !important;
+  max-width: 100% !important;
 }
 
 .page-title {

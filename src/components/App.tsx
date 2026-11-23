@@ -524,12 +524,21 @@ export function App() {
             title="Настройки"
           >
             {tab === "theory" && (
-              <div>
-                <div className="theory-tabs">
+              <div style={{ width: "100%", maxWidth: "100%" }}>
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "1fr 1fr",
+                    gap: 8,
+                    width: "100%",
+                    marginBottom: 14,
+                  }}
+                >
                   {THEORY_CATEGORIES.map((cat) => (
                     <button
                       key={cat.id}
                       className={`theory-tab ${theoryCat === cat.id ? "active" : ""}`}
+                      style={{ width: "100%", margin: 0 }}
                       onClick={() => {
                         tg?.HapticFeedback?.impactOccurred?.("light");
                         setTheoryCat(cat.id);
@@ -553,13 +562,13 @@ export function App() {
                         tg?.HapticFeedback?.impactOccurred?.("light");
                         setOpenArticleId(isOpen ? "" : art.id);
                       }}
-                      style={{ cursor: "pointer" }}
+                      style={{ width: "100%", cursor: "pointer" }}
                     >
                       <div
                         className="row-between"
                         style={{ alignItems: "flex-start", gap: 10 }}
                       >
-                        <div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ fontWeight: 700, fontSize: 16 }}>
                             {art.title}
                           </div>

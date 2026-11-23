@@ -147,16 +147,11 @@ type TabType =
   | "stats"
   | "theory"
   | "settings";
-
 export function App() {
-  const [theoryCat, setTheoryCat] = useState<
-    "start" | "progress" | "technique" | "health"
-  >("start");
-  const [openArticleId, setOpenArticleId] = useState<string>("start-1");
-
   const [tab, setTab] = useState<TabType>("workout");
-  const [prevTab, setPrevTab] =
-    useState<Exclude<TabType, "settings">>("workout");
+  const [prevTab, setPrevTab] = useState<
+    "workout" | "goals" | "history" | "stats"
+  >("workout");
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [goals, setGoals] = useState<Goal[]>([]);
   const [loading, setLoading] = useState(true);
@@ -200,6 +195,12 @@ export function App() {
   const [monthDays, setMonthDays] = useState<number>(0);
   const [totalVol, setTotalVol] = useState<number>(0);
   const [progress, setProgress] = useState<ProgressPoint[]>([]);
+
+  const [theoryCat, setTheoryCat] = useState<
+    "start" | "progress" | "technique" | "health"
+  >("start");
+  const [openArticleId, setOpenArticleId] = useState<string>("start-1");
+
   const tg = window.Telegram?.WebApp;
   const hashP = new URLSearchParams(window.location.hash.slice(1));
   const queryP = new URLSearchParams(window.location.search);
@@ -236,7 +237,6 @@ export function App() {
     tg?.ready?.();
     tg?.expand?.();
   }, []);
-
   const api = async (url: string, opts: RequestInit = {}) => {
     const res = await fetch(url, {
       ...opts,
@@ -302,13 +302,15 @@ export function App() {
 
   const currentEx = exercises.find((e) => e.id === selectedEx);
 
-  const toggleSettings = () => {
+  const openTopTab = (target: "theory" | "settings") => {
     tg?.HapticFeedback?.impactOccurred?.("light");
-    if (tab === "settings") {
+    if (tab === target) {
       setTab(prevTab);
     } else {
-      setPrevTab(tab);
-      setTab("settings");
+      if (tab !== "theory" && tab !== "settings") {
+        setPrevTab(tab);
+      }
+      setTab(target);
     }
   };
 
@@ -505,107 +507,16 @@ export function App() {
         <div style={{ display: "flex", gap: 8 }}>
           <button
             className={`icon-btn ${tab === "theory" ? "active" : ""}`}
-            onClick={() => {
-              tg?.HapticFeedback?.impactOccurred?.("light");
-              if (tab === "theory") {
-                setTab(prevTab);
-              } else {
-                if (tab !== "settings") setPrevTab(tab);
-                setTab("theory");
-              }
-            }}
-            title="Теория"
+            onClick={() => openTopTab("theory")}
+            title="База знаний"
           >
             📖
           </button>
           <button
             className={`icon-btn ${tab === "settings" ? "active" : ""}`}
-            onClick={toggleSettings}
+            onClick={() => openTopTab("settings")}
             title="Настройки"
           >
-            {tab === "theory" && (
-              <div style={{ width: "100%", maxWidth: "100%" }}>
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "1fr 1fr",
-                    gap: 8,
-                    width: "100%",
-                    marginBottom: 14,
-                  }}
-                >
-                  {THEORY_CATEGORIES.map((cat) => (
-                    <button
-                      key={cat.id}
-                      className={`theory-tab ${theoryCat === cat.id ? "active" : ""}`}
-                      style={{ width: "100%", margin: 0 }}
-                      onClick={() => {
-                        tg?.HapticFeedback?.impactOccurred?.("light");
-                        setTheoryCat(cat.id);
-                      }}
-                    >
-                      {cat.label}
-                    </button>
-                  ))}
-                </div>
-
-                {THEORY_ARTICLES.filter(
-                  (art) => art.category === theoryCat,
-                ).map((art) => {
-                  const isOpen = openArticleId === art.id;
-                  const mins = estimateReadMinutes(art.content);
-                  return (
-                    <div
-                      key={art.id}
-                      className="card"
-                      onClick={() => {
-                        tg?.HapticFeedback?.impactOccurred?.("light");
-                        setOpenArticleId(isOpen ? "" : art.id);
-                      }}
-                      style={{ width: "100%", cursor: "pointer" }}
-                    >
-                      <div
-                        className="row-between"
-                        style={{ alignItems: "flex-start", gap: 10 }}
-                      >
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontWeight: 700, fontSize: 16 }}>
-                            {art.title}
-                          </div>
-                          <div
-                            style={{
-                              fontSize: 13,
-                              color: "var(--muted)",
-                              marginTop: 4,
-                            }}
-                          >
-                            {art.summary}
-                          </div>
-                        </div>
-                        <span
-                          style={{ color: "var(--accent)", fontWeight: 700 }}
-                        >
-                          {isOpen ? "▲" : "▼"}
-                        </span>
-                      </div>
-
-                      {isOpen && (
-                        <div className="theory-body">
-                          {art.content.map((paragraph, idx) => (
-                            <p key={idx}>{paragraph}</p>
-                          ))}
-                        </div>
-                      )}
-
-                      <div className="read-time">
-                        <span>⏱ ~{mins} мин чтения</span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-
             {tab === "settings" ? "✕" : "⚙️"}
           </button>
         </div>
@@ -776,11 +687,7 @@ export function App() {
 
           <div className="card">
             <div
-              style={{
-                fontSize: 14,
-                color: "var(--muted)",
-                marginBottom: 10,
-              }}
+              style={{ fontSize: 14, color: "var(--muted)", marginBottom: 10 }}
             >
               Добавить своё упражнение
             </div>
@@ -1149,6 +1056,77 @@ export function App() {
               </div>
             )}
           </div>
+        </div>
+      )}
+      {tab === "theory" && (
+        <div>
+          <div className="theory-tabs">
+            {THEORY_CATEGORIES.map((cat) => (
+              <button
+                key={cat.id}
+                className={`theory-tab ${theoryCat === cat.id ? "active" : ""}`}
+                onClick={() => {
+                  tg?.HapticFeedback?.impactOccurred?.("light");
+                  setTheoryCat(cat.id);
+                }}
+              >
+                {cat.label}
+              </button>
+            ))}
+          </div>
+
+          {THEORY_ARTICLES.filter((art) => art.category === theoryCat).map(
+            (art) => {
+              const isOpen = openArticleId === art.id;
+              const mins = estimateReadMinutes(art.content);
+              return (
+                <div
+                  key={art.id}
+                  className="card"
+                  onClick={() => {
+                    tg?.HapticFeedback?.impactOccurred?.("light");
+                    setOpenArticleId(isOpen ? "" : art.id);
+                  }}
+                  style={{ cursor: "pointer" }}
+                >
+                  <div
+                    className="row-between"
+                    style={{ alignItems: "flex-start", gap: 10 }}
+                  >
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: 700, fontSize: 16 }}>
+                        {art.title}
+                      </div>
+                      <div
+                        style={{
+                          fontSize: 13,
+                          color: "var(--muted)",
+                          marginTop: 4,
+                        }}
+                      >
+                        {art.summary}
+                      </div>
+                    </div>
+                    <span style={{ color: "var(--accent)", fontWeight: 700 }}>
+                      {isOpen ? "▲" : "▼"}
+                    </span>
+                  </div>
+
+                  {isOpen && (
+                    <div className="theory-body">
+                      {art.content.map((paragraph, idx) => (
+                        <p key={idx}>{paragraph}</p>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="read-time">
+                    <span>⏱ ~{mins} мин чтения</span>
+                  </div>
+                </div>
+              );
+            },
+          )}
         </div>
       )}
 

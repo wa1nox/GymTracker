@@ -15,6 +15,8 @@ interface Goal {
   target_weight: number;
   target_reps: number;
   is_completed: boolean;
+  deadline: string | null;
+  current_best: number;
 }
 
 interface SetItem {
@@ -24,6 +26,11 @@ interface SetItem {
   weight: number;
   reps: number;
   time: string;
+}
+
+interface ProgressPoint {
+  label: string;
+  max_weight: number;
 }
 
 declare global {
@@ -58,8 +65,14 @@ const BACKGROUNDS = [
   { id: 'midnight', name: 'Полночь', bg: '#0b1120', card: '#131c31', nav: '#0f172a' },
 ];
 
-const REST_OPTIONS = Array.of(60, 90, 120, 180);
+const DEADLINE_PRESETS = [
+  { label: 'Без срока', days: 0 },
+  { label: '2 нед.', days: 14 },
+  { label: '1 мес.', days: 30 },
+  { label: '3 мес.', days: 90 },
+];
 
+const REST_OPTIONS = Array.of(60, 90, 120, 180);
 const GROUPS = ['Грудь', 'Спина', 'Ноги', 'Плечи', 'Руки', 'Пресс'];
 const MONTHS = [
   'Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь',
@@ -67,9 +80,11 @@ const MONTHS = [
 ];
 const DAYS = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
 
+type TabType = 'workout' | 'goals' | 'history' | 'stats' | 'settings';
+
 export function App() {
-  const [tab, setTab] = useState<'workout' | 'goals' | 'history' | 'settings'>('workout');
-  const [prevTab, setPrevTab] = useState<'workout' | 'goals' | 'history'>('workout');
+  const [tab, setTab] = useState<TabType>('workout');
+  const [prevTab, setPrevTab] = useState<Exclude<TabType, 'settings'>>('workout');
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [goals, setGoals] = useState<Goal[]>([]);
   const [loading, setLoading] = useState(true);
@@ -93,6 +108,7 @@ export function App() {
 
   const [goalW, setGoalW] = useState<number>(100);
   const [goalR, setGoalR] = useState<number>(8);
+  const [goalDays, setGoalDays] = useState<number>(30);
 
   const [workoutDays, setWorkoutDays] = useState<string[]>([]);
   const [selectedDay, setSelectedDay] = useState<string>('');
@@ -100,6 +116,12 @@ export function App() {
   const [showCal, setShowCal] = useState<boolean>(true);
   const [year, setYear] = useState<number>(new Date().getFullYear());
   const [month, setMonth] = useState<number>(new Date().getMonth());
+
+  const [statEx, setStatEx] = useState<number>(1);
+  const [totalDays, setTotalDays] = useState<number>(0);
+  const [monthDays, setMonthDays] = useState<number>(0);
+  const [totalVol, setTotalVol] = useState<number>(0);
+  const [progress, setProgress] = useState<ProgressPoint[]>([]);
   const tg = window.Telegram?.WebApp;
   const hashP = new URLSearchParams(window.location.hash.slice(1));
   const queryP = new URLSearchParams(window.location.search);
@@ -148,6 +170,14 @@ export function App() {
     return res.json();
   };
 
+  const loadStats = async (exId: number) => {
+    const data = await api(`/api/stats?exercise_id=${exId}`);
+    setTotalDays(data.total_days || 0);
+    setMonthDays(data.month_days || 0);
+    setTotalVol(data.total_volume || 0);
+    setProgress(data.progress || []);
+  };
+
   const loadData = async () => {
     try {
       const data = await api('/api/init');
@@ -158,12 +188,20 @@ export function App() {
       setDaySets(data.day_sets || []);
       if (data.selected_day) {
         const p = data.selected_day.split('-');
-        setYear(Number(p.at(0)));
-        setMonth(Number(p.at(1)) - 1);
+        setYear(Number(p.find(Boolean)));
+        setMonth(Number(p.slice(1).find(Boolean)) - 1);
       }
-      const first = data.exercises.at(0);
-      if (first && !data.exercises.some((e: Exercise) => e.id === selectedEx)) {
-        setSelectedEx(first.id);
+      const first = data.exercises.find(Boolean);
+      if (first) {
+        if (!data.exercises.some((e: Exercise) => e.id === selectedEx)) {
+          setSelectedEx(first.id);
+        }
+        if (!data.exercises.some((e: Exercise) => e.id === statEx)) {
+          setStatEx(first.id);
+          loadStats(first.id);
+        } else {
+          loadStats(statEx);
+        }
       }
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Ошибка загрузки');
@@ -257,15 +295,28 @@ export function App() {
   };
 
   const addGoal = async () => {
+    let deadline: string | null = null;
+    if (goalDays > 0) {
+      const target = new Date();
+      target.setDate(target.getDate() + goalDays);
+      deadline = target.toISOString().slice(0, 10);
+    }
     await api('/api/goals', {
       method: 'POST',
       body: JSON.stringify({
         exercise_id: selectedEx,
         target_weight: goalW,
         target_reps: goalR,
+        deadline,
       }),
     });
     tg?.HapticFeedback?.notificationOccurred?.('success');
+    loadData();
+  };
+
+  const removeGoal = async (id: number) => {
+    await api(`/api/goals/${id}`, { method: 'DELETE' });
+    tg?.HapticFeedback?.impactOccurred?.('light');
     loadData();
   };
   const stepWeight = (delta: number) => {
@@ -316,6 +367,14 @@ export function App() {
     return list;
   };
 
+  const getDaysLeftLabel = (dl: string | null) => {
+    if (!dl) return 'Без срока';
+    const diff = Math.ceil((new Date(dl).getTime() - Date.now()) / 86400000);
+    if (diff < 0) return `Просрочено на ${Math.abs(diff)} дн.`;
+    if (diff === 0) return 'Срок сегодня';
+    return `Осталось ${diff} дн. (до ${dl})`;
+  };
+
   const grouped = daySets.reduce<Record<string, SetItem[]>>((acc, s) => {
     if (!acc[s.exercise_name]) acc[s.exercise_name] = [];
     acc[s.exercise_name].push(s);
@@ -344,10 +403,11 @@ export function App() {
     );
   }
 
-  const pageTitles: Record<string, string> = {
+  const pageTitles: Record<TabType, string> = {
     workout: 'Тренировка',
     goals: 'Цели',
     history: 'История',
+    stats: 'Статистика',
     settings: 'Настройки',
   };
 
@@ -572,11 +632,14 @@ export function App() {
       {tab === 'goals' && (
         <div>
           <div className="card">
+            <div style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 8 }}>
+              Новая цель по весу
+            </div>
             <select
               className="input"
               value={selectedEx}
               onChange={(e) => setSelectedEx(Number(e.target.value))}
-              style={{ width: '100%', marginBottom: 12 }}
+              style={{ width: '100%', marginBottom: 10 }}
             >
               {exercises.map((ex) => (
                 <option key={ex.id} value={ex.id}>
@@ -584,14 +647,15 @@ export function App() {
                 </option>
               ))}
             </select>
-            <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+
+            <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
               <input
                 className="input"
                 type="number"
                 step="0.25"
                 value={goalW}
                 onChange={(e) => setGoalW(Number(e.target.value))}
-                placeholder="Вес (кг)"
+                placeholder="Целевой вес (кг)"
                 style={{ width: '50%' }}
               />
               <input
@@ -599,51 +663,78 @@ export function App() {
                 type="number"
                 value={goalR}
                 onChange={(e) => setGoalR(Number(e.target.value))}
-                placeholder="Повторы"
+                placeholder="Повторения"
                 style={{ width: '50%' }}
               />
             </div>
+
+            <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 6 }}>
+              Срок достижения:
+            </div>
+            <div style={{ display: 'flex', gap: 6, marginBottom: 12 }}>
+              {DEADLINE_PRESETS.map((p) => (
+                <button
+                  key={p.days}
+                  className={goalDays === p.days ? 'btn' : 'btn-sec'}
+                  style={{ flex: 1, padding: '8px 4px', fontSize: 12 }}
+                  onClick={() => setGoalDays(p.days)}
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
+
             <button className="btn btn-full" onClick={addGoal}>
               Поставить цель
             </button>
           </div>
 
-          {goals.map((g) => (
-            <div
-              key={g.id}
-              className="card"
-              style={{
-                borderLeft: g.is_completed
-                  ? '4px solid var(--success)'
-                  : '4px solid var(--accent)',
-              }}
-            >
-              <div style={{ fontWeight: 700, fontSize: 16 }}>
-                {g.exercise_name} {g.is_completed ? '(Выполнено)' : ''}
+          {goals.map((g) => {
+            const pct = g.is_completed
+              ? 100
+              : Math.min(100, Math.round((g.current_best / Math.max(1, g.target_weight)) * 100));
+            return (
+              <div
+                key={g.id}
+                className="card"
+                style={{
+                  borderLeft: g.is_completed
+                    ? '4px solid var(--success)'
+                    : '4px solid var(--accent)',
+                }}
+              >
+                <div className="row-between">
+                  <div style={{ fontWeight: 700, fontSize: 16 }}>
+                    {g.exercise_name} {g.is_completed ? '✅' : ''}
+                  </div>
+                  <button
+                    className="btn-danger"
+                    onClick={() => removeGoal(g.id)}
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                <div style={{ color: 'var(--muted)', fontSize: 13, marginTop: 4 }}>
+                  Цель: <b style={{ color: 'var(--text)' }}>{g.target_weight} кг x {g.target_reps}</b> • Макс: {g.current_best} кг ({pct}%)
+                </div>
+
+                <div style={{ fontSize: 12, color: 'var(--accent)', marginTop: 4 }}>
+                  {g.is_completed ? 'Цель достигнута!' : getDaysLeftLabel(g.deadline)}
+                </div>
+
+                <div className="progress-track">
+                  <div className="progress-fill" style={{ width: `${pct}%` }} />
+                </div>
               </div>
-              <div style={{ color: 'var(--muted)', marginTop: 4 }}>
-                Цель:{' '}
-                <b style={{ color: 'var(--text)' }}>
-                  {g.target_weight} кг x {g.target_reps} раз
-                </b>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
       {tab === 'history' && (
         <div>
-          <div
-            style={{
-              display: 'flex',
-              justifyContent: 'flex-end',
-              marginBottom: 12,
-            }}
-          >
-            <button
-              className="btn-sec btn-sm"
-              onClick={() => setShowCal((v) => !v)}
-            >
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
+            <button className="btn-sec btn-sm" onClick={() => setShowCal((v) => !v)}>
               {showCal ? 'Скрыть календарь' : 'Показать календарь'}
             </button>
           </div>
@@ -651,35 +742,13 @@ export function App() {
           {showCal && (
             <div className="card">
               <div className="row-between" style={{ marginBottom: 12 }}>
-                <button
-                  className="btn-sec btn-sm"
-                  onClick={() => shiftMonth(-1)}
-                >
-                  {'<'}
-                </button>
-                <b style={{ fontSize: 16 }}>
-                  {MONTHS[month]} {year}
-                </b>
-                <button
-                  className="btn-sec btn-sm"
-                  onClick={() => shiftMonth(1)}
-                >
-                  {'>'}
-                </button>
+                <button className="btn-sec btn-sm" onClick={() => shiftMonth(-1)}>{'<'}</button>
+                <b style={{ fontSize: 16 }}>{MONTHS[month]} {year}</b>
+                <button className="btn-sec btn-sm" onClick={() => shiftMonth(1)}>{'>'}</button>
               </div>
 
-              <div
-                className="cal-grid"
-                style={{
-                  textAlign: 'center',
-                  fontSize: 12,
-                  color: 'var(--muted)',
-                  marginBottom: 8,
-                }}
-              >
-                {DAYS.map((d) => (
-                  <div key={d}>{d}</div>
-                ))}
+              <div className="cal-grid" style={{ textAlign: 'center', fontSize: 12, color: 'var(--muted)', marginBottom: 8 }}>
+                {DAYS.map((d) => <div key={d}>{d}</div>)}
               </div>
 
               <div className="cal-grid">{renderCells()}</div>
@@ -692,10 +761,7 @@ export function App() {
                 className="btn-sec btn-sm"
                 disabled={dayIdx === -1 || dayIdx >= workoutDays.length - 1}
                 onClick={() => selectDay(workoutDays.slice(dayIdx + 1).find(Boolean)!)}
-                style={{
-                  opacity:
-                    dayIdx === -1 || dayIdx >= workoutDays.length - 1 ? 0.4 : 1,
-                }}
+                style={{ opacity: dayIdx === -1 || dayIdx >= workoutDays.length - 1 ? 0.4 : 1 }}
               >
                 Пред. день
               </button>
@@ -712,20 +778,13 @@ export function App() {
           )}
 
           {Object.keys(grouped).length === 0 ? (
-            <div
-              className="card"
-              style={{ color: 'var(--muted)', textAlign: 'center' }}
-            >
+            <div className="card" style={{ color: 'var(--muted)', textAlign: 'center' }}>
               За выбранный день тренировок не найдено
             </div>
           ) : (
             Object.entries(grouped).map(([name, items]) => (
               <div key={name} className="card">
-                <div
-                  style={{ fontWeight: 700, fontSize: 17, marginBottom: 10 }}
-                >
-                  {name}
-                </div>
+                <div style={{ fontWeight: 700, fontSize: 17, marginBottom: 10 }}>{name}</div>
                 {items.map((s, idx) => (
                   <div
                     key={s.id}
@@ -735,20 +794,84 @@ export function App() {
                       borderTop: idx > 0 ? '1px solid var(--border)' : 'none',
                     }}
                   >
-                    <span>
-                      Подход {idx + 1}:{' '}
-                      <b>
-                        {s.weight} кг x {s.reps}
-                      </b>
-                    </span>
-                    <span style={{ color: 'var(--muted)', fontSize: 13 }}>
-                      {s.time}
-                    </span>
+                    <span>Подход {idx + 1}: <b>{s.weight} кг x {s.reps}</b></span>
+                    <span style={{ color: 'var(--muted)', fontSize: 13 }}>{s.time}</span>
                   </div>
                 ))}
               </div>
             ))
           )}
+        </div>
+      )}
+
+      {tab === 'stats' && (
+        <div>
+          <div className="stat-grid">
+            <div className="stat-box">
+              <div className="stat-val">{totalDays}</div>
+              <div className="stat-lbl">Всего тренировок</div>
+            </div>
+            <div className="stat-box">
+              <div className="stat-val">{monthDays}</div>
+              <div className="stat-lbl">За этот месяц</div>
+            </div>
+            <div className="stat-box">
+              <div className="stat-val">{(totalVol / 1000).toFixed(1)} т</div>
+              <div className="stat-lbl">Общий тоннаж</div>
+            </div>
+          </div>
+
+          <div className="card">
+            <div style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 8 }}>
+              Прогресс рабочих весов:
+            </div>
+            <select
+              className="input"
+              value={statEx}
+              onChange={(e) => {
+                const id = Number(e.target.value);
+                setStatEx(id);
+                loadStats(id);
+              }}
+              style={{ width: '100%', marginBottom: 14 }}
+            >
+              {exercises.map((ex) => (
+                <option key={ex.id} value={ex.id}>{ex.name}</option>
+              ))}
+            </select>
+
+            {progress.length === 0 ? (
+              <div style={{ color: 'var(--muted)', textAlign: 'center', padding: '20px 0' }}>
+                Нет записей по этому упражнению
+              </div>
+            ) : (
+              <div>
+                <div className="row-between" style={{ fontSize: 13, marginBottom: 8 }}>
+                  <span>Старт: <b>{progress.find(Boolean)?.max_weight} кг</b></span>
+                  <span>
+                    Рекорд:{' '}
+                    <b style={{ color: 'var(--success)' }}>
+                      {Math.max(...progress.map((p) => p.max_weight))} кг
+                    </b>
+                  </span>
+                </div>
+
+                <div className="chart-wrap">
+                  {progress.map((pt, i) => {
+                    const maxVal = Math.max(...progress.map((p) => p.max_weight), 1);
+                    const hPct = Math.max(15, Math.round((pt.max_weight / maxVal) * 100));
+                    return (
+                      <div key={i} className="chart-col">
+                        <span className="chart-val">{pt.max_weight}</span>
+                        <div className="chart-bar" style={{ height: `${hPct}%` }} />
+                        <span className="chart-date">{pt.label}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       )}
 
@@ -777,13 +900,7 @@ export function App() {
 
           <div className="card">
             <div style={{ fontWeight: 700, marginBottom: 4 }}>Тема фона</div>
-            <div
-              style={{
-                fontSize: 13,
-                color: 'var(--muted)',
-                marginBottom: 12,
-              }}
-            >
+            <div style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 12 }}>
               Оттенок основного экрана и карточек
             </div>
             <div style={{ display: 'flex', gap: 8 }}>
@@ -804,16 +921,8 @@ export function App() {
           </div>
 
           <div className="card">
-            <div style={{ fontWeight: 700, marginBottom: 4 }}>
-              Таймер отдыха по умолчанию
-            </div>
-            <div
-              style={{
-                fontSize: 13,
-                color: 'var(--muted)',
-                marginBottom: 12,
-              }}
-            >
+            <div style={{ fontWeight: 700, marginBottom: 4 }}>Таймер отдыха по умолчанию</div>
+            <div style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 12 }}>
               Автоматически запускается после записи подхода
             </div>
             <div style={{ display: 'flex', gap: 8 }}>
@@ -840,13 +949,14 @@ export function App() {
           { id: 'workout', label: 'Зал', icon: '🏋️' },
           { id: 'goals', label: 'Цели', icon: '🎯' },
           { id: 'history', label: 'История', icon: '📅' },
+          { id: 'stats', label: 'Прогресс', icon: '📊' },
         ].map((item) => (
           <button
             key={item.id}
             className={`nav-item ${tab === item.id ? 'active' : ''}`}
             onClick={() => {
               tg?.HapticFeedback?.impactOccurred?.('light');
-              setTab(item.id as 'workout' | 'goals' | 'history');
+              setTab(item.id as TabType);
             }}
           >
             <span style={{ fontSize: 18 }}>{item.icon}</span>
